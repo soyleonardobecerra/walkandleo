@@ -212,12 +212,12 @@ function escucharMensajes() {
     unsubMensajes = onSnapshot(q, snapshot => {
         snapshot.docChanges().forEach(change => {
             if (change.type !== 'added') return;
-            const data   = change.doc.data();
+            const data     = change.doc.data();
             const esPropio = data.uid === currentUser?.uid;
-            agregarMensaje(data, esPropio);
+            const div      = agregarMensaje(data, esPropio);
 
             if (!primeraCarga && !esPropio) {
-                reproducir(data.audioUrl);
+                reproducir(data.audioUrl, div);
             }
         });
         primeraCarga = false;
@@ -230,22 +230,41 @@ function agregarMensaje(data, esPropio) {
     const div    = document.createElement('div');
     div.className = `msg${esPropio ? ' own' : ''}`;
     div.innerHTML = `
-        <div class="msg-icon">${esPropio ? '🎙️' : '🔊'}</div>
+        <div class="msg-icon">${esPropio ? '\u{1F399}' : '\u{1F50A}'}</div>
         <div class="msg-body">
             <div class="msg-sender">${nombre}</div>
             <div class="msg-label">${esPropio ? 'Enviaste un audio' : 'Audio recibido'}</div>
             <div class="msg-time">${hora}</div>
         </div>`;
     div.title = 'Toca para reproducir';
-    div.addEventListener('click', () => reproducir(data.audioUrl));
+    div.addEventListener('click', () => reproducir(data.audioUrl, div));
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
+    return div;
 }
 
-function reproducir(url) {
-    if (audioActivo) { audioActivo.pause(); audioActivo = null; }
-    audioActivo = new Audio(url);
-    audioActivo.play().catch(() => {});
+function reproducir(url, divMsg) {
+    if (audioActivo) {
+        audioActivo.pause();
+        audioActivo = null;
+    }
+    const audio = new Audio(url);
+    audioActivo = audio;
+
+    const icon = divMsg ? divMsg.querySelector('.msg-icon') : null;
+    if (icon) icon.textContent = '\u{1F509}';
+
+    audio.onended = () => {
+        audioActivo = null;
+        if (icon) icon.textContent = '\u{1F50A}';
+    };
+
+    audio.play().catch(() => {
+        audioActivo = null;
+        if (icon) icon.textContent = '\u25B6\uFE0F';
+        setStatus('TOCA EL MENSAJE PARA ESCUCHARLO', 'sending');
+        setTimeout(() => setStatus('LISTO PARA TRANSMITIR'), 4000);
+    });
 }
 
 // ── GPS SILENCIOSO ────────────────────────────────────────────────────────
