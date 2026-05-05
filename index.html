@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#050816">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Radio Familiar">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <title>Radio Familiar</title>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="screen-login" class="screen-login">
+    <div class="brand-block">
+        <div class="brand-logo">📡 RADIO</div>
+        <div class="brand-sub">Familiar privada</div>
+    </div>
+    <form class="login-form" id="form-login">
+        <input type="email" id="inp-email" placeholder="Correo electrónico" autocomplete="email" required>
+        <input type="password" id="inp-pass" placeholder="Contraseña" autocomplete="current-password" required>
+        <button type="submit" class="btn-primary">INGRESAR</button>
+        <div class="form-error" id="login-error"></div>
+    </form>
+</section>
+
+<!-- LOBBY -->
+<section id="screen-mundos" class="screen-mundos">
+    <header class="topbar">
+        <div>
+            <div class="topbar-title">🌍 LOBBY FAMILIAR</div>
+            <div class="topbar-sub">Elige a qué mundo quieres entrar</div>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn-small" id="btn-profile">PERFIL</button>
+            <button class="btn-small danger" id="btn-logout-mundos">SALIR</button>
+        </div>
+    </header>
+    <main class="mundos-body" id="mundos-body"></main>
+</section>
+
+<!-- APP RADIO -->
+<section id="screen-app" class="screen-app">
+    <header class="topbar appbar">
+        <div>
+            <div class="topbar-title">RADIO FAMILIAR</div>
+            <div class="topbar-sub" id="mundo-activo-label">—</div>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn-small icon" id="btn-profile-app" title="Perfil">👤</button>
+            <button class="btn-small" id="btn-world-qr" title="QR del mundo">QR</button>
+            <button class="btn-small" id="btn-world-settings" title="Ajustes del mundo">⚙️</button>
+            <button class="btn-small" id="btn-volver">◀ LOBBY</button>
+        </div>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab active" id="tab-radio" type="button" onclick="switchTab('radio')">📡 RADIO</button>
+        <button class="tab" id="tab-gps" type="button" onclick="switchTab('gps')">📍 UBICACIÓN</button>
+        <button class="tab" id="tab-miembros" type="button" onclick="switchTab('miembros')">👥 MIEMBROS</button>
+    </nav>
+
+    <section id="panel-radio" class="panel-radio">
+        <button id="new-audio-counter" class="new-audio-counter" type="button"></button>
+        <div id="chat" class="chat"></div>
+        <div id="status" class="status">LISTO PARA TRANSMITIR</div>
+        <div class="controls">
+            <div class="wave" id="wave">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <button id="btn-ptt" class="btn-ptt" type="button">
+                <span class="ptt-icon">📡</span>
+                <span class="ptt-label" id="ptt-label">PULSA</span>
+            </button>
+            <div class="emoji-bar" id="emoji-bar">
+                <button type="button" data-emoji="❤️">❤️</button>
+                <button type="button" data-emoji="😂">😂</button>
+                <button type="button" data-emoji="👍">👍</button>
+                <button type="button" data-emoji="🙏">🙏</button>
+                <button type="button" data-emoji="🚗">🚗</button>
+                <button type="button" data-emoji="🏠">🏠</button>
+                <button type="button" data-emoji="✅">✅</button>
+                <button type="button" data-emoji="🚨">🚨</button>
+            </div>
+            <button id="btn-emergency" class="btn-emergency" type="button">🚨 EMERGENCIA FAMILIAR</button>
+        </div>
+    </section>
+
+    <section id="panel-gps" class="panel-gps"><div class="empty">Cargando ubicaciones...</div></section>
+    <section id="panel-miembros" class="panel-miembros"><div class="empty">Cargando miembros...</div></section>
+</section>
+
+<!-- MODAL PERFIL -->
+<div class="modal-overlay" id="modal-perfil">
+    <div class="modal">
+        <div class="modal-title">MI PERFIL</div>
+        <div class="modal-sub">Este nombre y avatar se verán en los mundos.</div>
+        <input type="text" id="inp-perfil-nombre" placeholder="Ej: Papá, Mamá, Sofi" maxlength="28">
+        <div class="avatar-options" id="avatar-options">
+            <button type="button" data-avatar="👨">👨</button>
+            <button type="button" data-avatar="👩">👩</button>
+            <button type="button" data-avatar="👦">👦</button>
+            <button type="button" data-avatar="👧">👧</button>
+            <button type="button" data-avatar="🧒">🧒</button>
+            <button type="button" data-avatar="👶">👶</button>
+            <button type="button" data-avatar="🐶">🐶</button>
+            <button type="button" data-avatar="⭐">⭐</button>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" id="btn-cancelar-perfil" type="button">CANCELAR</button>
+            <button class="btn-primary" id="btn-guardar-perfil" type="button">GUARDAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CLAVE DE MUNDO -->
+<div class="modal-overlay" id="modal-clave-mundo">
+    <div class="modal">
+        <div class="modal-title">MUNDO PRIVADO</div>
+        <div class="modal-sub" id="clave-mundo-help">Escribe la clave para entrar.</div>
+        <input type="password" id="inp-clave-mundo" placeholder="Clave del mundo" autocomplete="off">
+        <div class="form-error" id="clave-mundo-error"></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" id="btn-cancelar-clave-mundo" type="button">CANCELAR</button>
+            <button class="btn-primary" id="btn-confirmar-clave-mundo" type="button">ENTRAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL QR / UNIRSE -->
+<div class="modal-overlay" id="modal-qr">
+    <div class="modal">
+        <div class="modal-title">QR DEL MUNDO</div>
+        <div class="modal-sub">Escanéalo desde otro celular para entrar rápido.</div>
+        <div class="qr-box"><img id="qr-img" alt="QR del mundo"></div>
+        <div class="qr-code" id="qr-code-label">—</div>
+        <div class="modal-actions">
+            <button class="btn-secondary" id="btn-cerrar-qr" type="button">CERRAR</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-unirse">
+    <div class="modal">
+        <div class="modal-title">ENTRAR CON QR O CÓDIGO</div>
+        <div class="modal-sub">Puedes escanear el QR o escribir el código del mundo.</div>
+        <input type="text" id="inp-codigo" placeholder="PAPA-MAMA / FAMILIA" autocomplete="off" autocorrect="off" spellcheck="false">
+        <video id="qr-scan-video" class="qr-video" playsinline muted></video>
+        <div class="scan-status" id="qr-scan-status">Escáner apagado.</div>
+        <div class="form-error" id="modal-error"></div>
+        <div class="modal-actions wrap">
+            <button class="btn-secondary" id="btn-scan-qr" type="button">ESCANEAR QR</button>
+            <button class="btn-secondary" id="btn-cancelar-modal" type="button">CANCELAR</button>
+            <button class="btn-primary" id="btn-confirmar-unirse" type="button">ENTRAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PIN ADULTO -->
+<div class="modal-overlay" id="modal-adult-pin">
+    <div class="modal">
+        <div class="modal-title" id="adult-pin-title">PIN ADULTO</div>
+        <div class="modal-sub" id="adult-pin-help">Escribe el PIN para configurar mundos.</div>
+        <input type="password" id="inp-adult-pin" placeholder="4 a 8 números" inputmode="numeric" autocomplete="off">
+        <div class="form-error" id="adult-pin-error"></div>
+        <div class="modal-actions">
+            <button class="btn-secondary" id="btn-cancelar-adult-pin" type="button">CANCELAR</button>
+            <button class="btn-primary" id="btn-confirmar-adult-pin" type="button">CONTINUAR</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AJUSTES MUNDO -->
+<div class="modal-overlay" id="modal-world-settings-panel">
+    <div class="modal">
+        <div class="modal-title">AJUSTES DEL MUNDO</div>
+        <div class="modal-sub" id="world-settings-help">Configura privacidad y nombre.</div>
+        <label class="field-label">Nombre del mundo</label>
+        <input type="text" id="inp-world-name" maxlength="32" placeholder="Nombre del mundo">
+        <label class="field-label">Nueva clave privada</label>
+        <input type="password" id="inp-world-pass" placeholder="Dejar vacío para no cambiar">
+        <div class="form-error" id="world-settings-error"></div>
+        <div class="modal-actions wrap">
+            <button class="btn-secondary" id="btn-remove-world-pass" type="button">HACER PÚBLICO</button>
+            <button class="btn-secondary" id="btn-close-world-settings" type="button">CERRAR</button>
+            <button class="btn-primary" id="btn-save-world-settings" type="button">GUARDAR</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- MODAL CREAR GRUPO -->
+<div class="modal-overlay" id="modal-crear-grupo">
+    <div class="modal">
+        <div class="modal-title">CREAR GRUPO</div>
+        <div class="modal-sub">Crea un grupo privado con usuarios registrados y habilitados.</div>
+        <label class="field-label">Nombre del grupo</label>
+        <input type="text" id="inp-group-name" maxlength="32" placeholder="Ej: Solo hermanos, Padres, Paseo">
+        <label class="field-label">Selecciona integrantes</label>
+        <div class="group-users-list" id="group-users-list">
+            <div class="empty small">Cargando usuarios...</div>
+        </div>
+        <div class="form-error" id="group-error"></div>
+        <div class="modal-actions wrap">
+            <button class="btn-secondary" id="btn-cancel-group" type="button">CANCELAR</button>
+            <button class="btn-primary" id="btn-create-group" type="button">CREAR GRUPO</button>
+        </div>
+    </div>
+</div>
+
+<!-- UPDATE BANNER -->
+<div id="update-banner" class="update-banner">
+    <span>Nueva versión disponible.</span>
+    <button id="btn-update-app" type="button">ACTUALIZAR</button>
+</div>
+
+<script type="module" src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+    });
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+        reg.addEventListener('updatefound', () => {
+            const sw = reg.installing;
+            if (!sw) return;
+            sw.addEventListener('statechange', () => {
+                if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                    document.getElementById('update-banner')?.classList.add('visible');
+                    document.getElementById('btn-update-app')?.addEventListener('click', () => {
+                        sw.postMessage({ type: 'SKIP_WAITING' });
+                    }, { once: true });
+                }
+            });
+        });
+    }).catch(() => {});
+}
+</script>
+</body>
+</html>
