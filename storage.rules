@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(mundoId) {
+      return signedIn()
+        && request.auth.uid in firestore.get(
+          /databases/(default)/documents/mundos/$(mundoId)
+        ).data.miembros;
+    }
+
+    match /audios/{mundoId}/{uid}/{fileName} {
+      allow read: if isMember(mundoId);
+
+      allow create: if isMember(mundoId)
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('audio/.*');
+
+      allow update: if false;
+
+      allow delete: if isMember(mundoId)
+        && request.auth.uid == uid;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

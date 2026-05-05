@@ -1,0 +1,102 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function mundoDoc(mundoId) {
+      return get(/databases/$(database)/documents/mundos/$(mundoId));
+    }
+
+    function isMember(mundoId) {
+      return signedIn()
+        && request.auth.uid in mundoDoc(mundoId).data.miembros;
+    }
+
+    function isOwner() {
+      return signedIn()
+        && request.auth.uid == resource.data.ownerUid;
+    }
+
+    function validMundoCreate() {
+      return signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.auth.uid in request.resource.data.miembros
+        && request.resource.data.tipo in ['directo', 'grupo']
+        && request.resource.data.miembros is list
+        && request.resource.data.miembros.size() >= 2
+        && request.resource.data.keys().hasAll([
+          'nombre',
+          'tipo',
+          'ownerUid',
+          'ownerEmail',
+          'miembros',
+          'creadoAt',
+          'updatedAt'
+        ]);
+    }
+
+    match /usuarios/{uid} {
+      allow read: if signedIn();
+
+      allow create, update: if isSelf(uid)
+        && request.resource.data.uid == request.auth.uid;
+
+      allow delete: if false;
+    }
+
+    match /mundos/{mundoId} {
+      allow get, list: if signedIn()
+        && request.auth.uid in resource.data.miembros;
+
+      allow create: if validMundoCreate();
+
+      allow update: if isOwner()
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+
+      allow delete: if false;
+
+      match /miembros/{uid} {
+        allow read: if isMember(mundoId);
+
+        allow create, update: if isMember(mundoId)
+          && uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid;
+
+        allow delete: if false;
+      }
+
+      match /mensajes/{msgId} {
+        allow read: if isMember(mundoId);
+
+        allow create: if isMember(mundoId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.tipo in ['audio', 'emoji', 'emergencia'];
+
+        allow update: if isMember(mundoId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['recibidoPor', 'reproducidoPor']);
+
+        allow delete: if isMember(mundoId)
+          && resource.data.uid == request.auth.uid;
+      }
+
+      match /ubicaciones/{uid} {
+        allow read: if isMember(mundoId);
+
+        allow create, update: if isMember(mundoId)
+          && uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid;
+
+        allow delete: if uid == request.auth.uid;
+      }
+    }
+  }
+}
