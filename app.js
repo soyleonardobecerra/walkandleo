@@ -416,19 +416,37 @@ function agregarMensaje(data, esPropio) {
     return div;
 }
 
-function reproducir(url, divMsg) {
+async function reproducir(url, divMsg) {
     if (audioActivo) { audioActivo.pause(); audioActivo = null; }
-    const audio = new Audio(url);
-    audioActivo  = audio;
-    const icon   = divMsg?.querySelector('.msg-icon');
-    if (icon) icon.textContent = '🔉';
-    audio.onended = () => { audioActivo = null; if (icon) icon.textContent = '🔊'; };
-    audio.play().catch(() => {
+    const icon = divMsg?.querySelector('.msg-icon');
+    if (icon) icon.textContent = '⏳';
+
+    try {
+        // Descargar el audio como blob para evitar problemas de CORS/auth en móviles
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('fetch ' + resp.status);
+        const blob    = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const audio   = new Audio(blobUrl);
+        audioActivo   = audio;
+
+        if (icon) icon.textContent = '🔉';
+
+        audio.onended = () => {
+            audioActivo = null;
+            URL.revokeObjectURL(blobUrl);
+            if (icon) icon.textContent = '🔊';
+        };
+
+        await audio.play();
+
+    } catch (err) {
+        console.error('reproducir:', err);
         audioActivo = null;
         if (icon) icon.textContent = '▶️';
-        setStatus('TOCA EL MENSAJE PARA ESCUCHARLO', 'sending');
-        setTimeout(() => setStatus('LISTO PARA TRANSMITIR'), 4000);
-    });
+        setStatus('ERROR AL REPRODUCIR — TOCA PARA REINTENTAR', 'recording');
+        setTimeout(() => setStatus('LISTO PARA TRANSMITIR'), 3000);
+    }
 }
 
 // ── GPS ───────────────────────────────────────────────────────────────────
