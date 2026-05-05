@@ -336,13 +336,20 @@ async function subirAudio() {
     try {
         const blob = new Blob(audioChunks, { type: 'audio/webm' });
         audioChunks = [];
-        const ruta  = `audios/${mundoActivo.id}/${Date.now()}_${currentUser.uid}.webm`;
-        const sRef  = ref(storage, ruta);
-        await uploadBytes(sRef, blob);
-        const url   = await getDownloadURL(sRef);
+
+        // Convertir a base64 para guardar directo en Firestore
+        // Esto evita CORS/auth de Storage al reproducir en móviles
+        const base64 = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload  = () => res(reader.result); // data:audio/webm;base64,...
+            reader.onerror = rej;
+            reader.readAsDataURL(blob);
+        });
+
+        // Límite: Firestore permite hasta 1MB por documento
+        // Un audio de walkie-talkie de ~5 seg pesa ~20-40KB, bien dentro del límite
         await addDoc(collection(db, 'mundos', mundoActivo.id, 'mensajes'), {
-            audioUrl:    url,
-            storagePath: ruta,
+            audioBase64: base64,
             uid:         currentUser.uid,
             email:       currentUser.email,
             timestamp:   Date.now(),
@@ -390,8 +397,9 @@ function escucharMensajes(mundoId) {
             if (change.type !== 'added') return;
             const data     = change.doc.data();
             const esPropio = data.uid === currentUser?.uid;
+            const audio64  = data.audioBase64 || data.audioUrl || null;
             const div      = agregarMensaje(data, esPropio);
-            if (!primeraCarga && !esPropio) reproducir(data.audioUrl, div);
+            if (!primeraCarga && !esPropio && audio64) reproducir(audio64, div);
         });
         primeraCarga = false;
     });
@@ -410,26 +418,35 @@ function agregarMensaje(data, esPropio) {
             <div class="msg-time">${hora}</div>
         </div>`;
     div.title = 'Toca para reproducir';
-    div.addEventListener('click', () => reproducir(data.audioUrl, div));
+    const audio64 = data.audioBase64 || data.audioUrl || null;
+    if (audio64) div.addEventListener('click', () => reproducir(audio64, div));
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
     return div;
 }
 
-async function reproducir(url, divMsg) {
+async function reproducir(src, divMsg) {
     if (audioActivo) { audioActivo.pause(); audioActivo = null; }
     const icon = divMsg?.querySelector('.msg-icon');
     if (icon) icon.textContent = '⏳';
 
     try {
-        // Descargar el audio como blob para evitar problemas de CORS/auth en móviles
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('fetch ' + resp.status);
-        const blob    = await resp.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const audio   = new Audio(blobUrl);
-        audioActivo   = audio;
+        let blobUrl;
 
+        if (src.startsWith('data:')) {
+            // Ya es base64 — convertir directo a blob URL
+            const res  = await fetch(src);
+            const blob = await res.blob();
+            blobUrl    = URL.createObjectURL(blob);
+        } else {
+            // URL remota — descargar como blob
+            const res = await fetch(src);
+            if (!res.ok) throw new Error('fetch ' + res.status);
+            blobUrl = URL.createObjectURL(await res.blob());
+        }
+
+        const audio = new Audio(blobUrl);
+        audioActivo = audio;
         if (icon) icon.textContent = '🔉';
 
         audio.onended = () => {
@@ -444,7 +461,7 @@ async function reproducir(url, divMsg) {
         console.error('reproducir:', err);
         audioActivo = null;
         if (icon) icon.textContent = '▶️';
-        setStatus('ERROR AL REPRODUCIR — TOCA PARA REINTENTAR', 'recording');
+        setStatus('ERROR AL REPRODUCIR', 'recording');
         setTimeout(() => setStatus('LISTO PARA TRANSMITIR'), 3000);
     }
 }
